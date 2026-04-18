@@ -1,11 +1,13 @@
 from flask import Flask, request, jsonify
 import requests
 import os
+from flask_cors import CORS
 from dotenv import load_dotenv
 
 load_dotenv()
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
 DATA_SERVICE = os.getenv("DATA_SERVICE_URL", "http://data-service:5002")
 EVENT_FUNC = os.getenv("SUBMISSION_EVENT_URL", "http://submission-event:8080/event")
 

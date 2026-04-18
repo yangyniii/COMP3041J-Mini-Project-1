@@ -2,7 +2,7 @@
 
 Campus Buzz 是一个混合云 Mini-project，演示前端提交、工作流服务、数据持久化、以及 Serverless 事件处理的基础集成。
 
-该项目目标是构建一个简单且可复现的“事件提交 -> 工作流记录 -> 事件触发 -> 处理函数 -> 结果回填”流程。项目不涉及复杂登录、权限系统或高端 UI 美化，适合快速验证系统架构和服务编排。
+该项目目标是构建一个简单且可复现的"事件提交 -> 工作流记录 -> 事件触发 -> 处理函数 -> 结果回填"流程。项目不涉及复杂登录、权限系统或高端 UI 美化，适合快速验证系统架构和服务编排。
 
 ## 项目结构
 
@@ -11,107 +11,173 @@ campus-buzz/
 ├── docker-compose.yml
 ├── README.md
 ├── requirements.txt
+├── start-services.sh          # 快速启动脚本
+├── venv/                      # Python 虚拟环境（运行脚本后自动创建）
 ├── services/
 │   ├── data-service/
-│   │   ├── api.py
-│   │   ├── database.py
-│   │   ├── Dockerfile
-│   │   └── requirements.txt
+│   │   ├── api.py            # Flask API 服务，提供事件记录 CRUD
+│   │   ├── database.py       # SQLAlchemy 模型定义
+│   │   ├── Dockerfile        # 数据服务容器配置
+│   │   └── requirements.txt  # Python 依赖
 │   ├── workflow/
-│   │   ├── main.py
-│   │   ├── Dockerfile
-│   │   └── requirements.txt
+│   │   ├── main.py           # Flask API 服务，处理事件提交
+│   │   ├── Dockerfile        # 工作流服务容器配置
+│   │   └── requirements.txt  # Python 依赖
 │   └── presentation/
-│       ├── Dockerfile
-│       ├── package.json
-│       ├── index.html
-│       └── src/app.js
+│       ├── Dockerfile        # 前端容器配置
+│       ├── package.json      # Node.js 依赖和脚本
+│       ├── public/
+│       │   └── index.html    # React 应用入口
+│       └── src/
+│           ├── App.js        # 主 React 组件
+│           ├── index.js      # React 应用入口点
+│           ├── index.css     # 样式文件
+│           └── setupProxy.js # 开发环境代理配置
 └── functions/
     ├── submission-event/
-    │   ├── index.js
-    │   └── Dockerfile
+    │   ├── index.js          # Serverless 函数模拟
+    │   └── Dockerfile        # 函数容器配置
     ├── processor/
-    │   ├── logic.py
-    │   ├── app.py
-    │   └── Dockerfile
+    │   ├── logic.py          # 事件处理逻辑
+    │   ├── app.py            # 处理函数 Flask 应用
+    │   └── Dockerfile        # 函数容器配置
     └── result-update/
-        ├── updater.py
-        ├── app.py
-        └── Dockerfile
+        ├── updater.py        # 结果更新逻辑
+        ├── app.py            # 更新函数 Flask 应用
+        └── Dockerfile        # 函数容器配置
 ```
 
 ## 核心功能说明
 
-- `services/data-service`：负责存储事件记录，提供 REST 接口创建、读取和更新记录。
-- `services/workflow`：负责接收前端提交、创建待处理记录，并模拟触发 Submission Event Function。
-- `services/presentation`：提供一个最简前端页面，用于输入事件提交表单。
-- `functions/processor`：实现 Serverless Processing Function 逻辑，按照优先级顺序判断状态、类别和优先级。
-- `functions/submission-event` / `functions/result-update`：保留 Serverless 函数模拟入口和回调接口。
+- **Data Service** (`services/data-service`)：基于 Flask + SQLAlchemy 的 REST API 服务
+  - 提供事件记录的完整 CRUD 操作
+  - 使用 SQLite 数据库存储数据
+  - 支持 CORS 跨域请求
+
+- **Workflow Service** (`services/workflow`)：基于 Flask 的工作流编排服务
+  - 接收前端事件提交请求
+  - 创建初始 PENDING 状态的记录到 Data Service
+  - 模拟触发 Serverless Submission Event Function
+
+- **Presentation Service** (`services/presentation`)：基于 React + Material-UI 的现代化前端
+  - 提供直观的事件提交表单
+  - 实时显示事件列表
+  - 直接调用后端 API（不使用代理）
+
+- **Processing Function** (`functions/processor`)：事件处理逻辑
+  - 实现完整的业务规则验证
+  - 根据内容自动分类和优先级分配
+  - 支持多种状态判断
+
+- **Serverless Functions**：预留的云函数模拟接口
+  - Submission Event：事件提交触发器
+  - Result Update：处理结果回填器
 
 ## 先决条件
 
-- Git
-- Python 3.11+（建议 3.11 或 3.12）
-- Node.js 18+（如果要运行前端静态页面）
-- 可选：Docker / Docker Compose（用于容器化，但本 README 重点提供本地复现方式）
+### 必需环境
+- **Python 3.11+**（推荐 3.11 或 3.12）
+  - 用于运行 Flask 后端服务
+- **Node.js 18+**（推荐 18.x LTS）
+  - 用于运行 React 前端
+- **Git**
+  - 用于克隆仓库
+
+### 可选环境
+- **Docker & Docker Compose**
+  - 用于容器化部署（当前 README 重点介绍本地开发方式）
+
+### 系统要求
+- **macOS** (已测试)
+- **Linux** / **Windows** (理论兼容，需要相应调整脚本)
 
 ## 本地复现步骤
 
-### 1. 克隆仓库
+### 🚀 快速启动（推荐）
 
 ```bash
+# 1. 克隆项目
 git clone <your-github-repo-url>
 cd campus-buzz
+
+# 2. 运行启动脚本（一键启动所有服务）
+./start-services.sh
 ```
 
-### 2. 创建 Python 虚拟环境并安装依赖
+启动脚本会自动：
+- ✅ 检查系统依赖（Python 3.11+, Node.js 18+）
+- ✅ 创建 Python 虚拟环境
+- ✅ 安装所有依赖包
+- ✅ 启动三个服务（Data:5002, Workflow:5001, Frontend:3000）
+- ✅ 自动打开浏览器访问前端
 
+### 🛠️ 手动启动步骤（备选）
+
+如果自动脚本有问题，可以手动启动：
+
+#### 1. 环境准备
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+# 克隆项目
+git clone <your-github-repo-url>
+cd campus-buzz
+
+# 创建 Python 虚拟环境
+python3 -m venv venv
+source venv/bin/activate  # Linux/macOS
+# 或 venv\Scripts\activate  # Windows
+
+# 安装 Python 依赖
 pip install -r requirements.txt
 ```
 
-### 3. 启动 Data Service
-
+#### 2. 启动 Data Service
 ```bash
+# 终端窗口 1
 cd services/data-service
 python api.py
 ```
+服务地址：`http://localhost:5002`
 
-默认监听：`http://127.0.0.1:5002`
-
-### 4. 启动 Workflow Service
-
-打开一个新终端窗口，激活虚拟环境后执行：
-
+#### 3. 启动 Workflow Service
 ```bash
-cd /Users/yangyani/Desktop/campus-buzz/services/workflow
-source /Users/yangyani/Desktop/campus-buzz/.venv/bin/activate
-python main.py
+# 终端窗口 2
+cd services/workflow
+DATA_SERVICE_URL=http://localhost:5002 python main.py
 ```
+服务地址：`http://localhost:5001`
 
-默认监听：`http://127.0.0.1:5001`
+#### 4. 启动前端
+```bash
+# 终端窗口 3
+cd services/presentation
+npm install
+npm start
+```
+前端地址：`http://localhost:3000`
 
-### 5. 测试提交流程
+### 🧪 快速验证
 
-使用 `curl` 向 Workflow Service 发送事件提交：
+启动所有服务后，运行以下命令验证：
 
 ```bash
-curl -X POST http://127.0.0.1:5001/api/submit \
+# 1. 检查服务是否运行
+curl -s http://localhost:5001/ | head -1  # 应该返回 Workflow Service 信息
+curl -s http://localhost:5002/ | head -1  # 应该返回 Data Service 信息
+
+# 2. 测试完整流程
+curl -X POST http://localhost:5001/api/submit \
   -H "Content-Type: application/json" \
-  -d '{"title": "Campus Talk", "description": "A great event to learn more about opportunities and networking.", "location": "Main Hall", "date": "2026-05-12", "organiser": "Student Union"}'
+  -d '{"title":"测试事件","description":"这是一个测试","location":"测试地点","date":"2024-12-31","organiser":"测试者"}'
+
+# 3. 检查数据是否创建
+curl http://localhost:5002/records | jq '.[0]'  # 查看第一条记录
 ```
 
-成功后你会收到一个 `id`，表示 Data Service 已创建该记录。
+### 📊 服务端口说明
 
-### 6. 验证数据存储
-
-```bash
-curl http://127.0.0.1:5002/records/<id>
-```
-
-将 `<id>` 替换为上一步返回的记录 ID。
+- **Frontend**: `http://localhost:3000` - React 应用
+- **Workflow Service**: `http://localhost:5001` - 事件提交处理
+- **Data Service**: `http://localhost:5002` - 数据存储和查询
 
 ## 服务接口说明
 
@@ -133,8 +199,8 @@ curl http://127.0.0.1:5002/records/<id>
 `functions/processor/logic.py` 实现了以下规则：
 
 1. 完整性检查：若缺少任意字段，返回 `INCOMPLETE`。
-2. 日期校验：若格式不是 `YYYY-MM-DD`，返回 `NEEDS REVISION`。
-3. 描述长度：若描述少于 40 字符，返回 `NEEDS REVISION`。
+2. 日期校验：若格式不是 `YYYY-MM-DD`，返回 `NEEDS_REVISION`。
+3. 描述长度：若描述少于 40 字符，返回 `NEEDS_REVISION`。
 4. 类别分配：优先关键字规则 `OPPORTUNITY > ACADEMIC > SOCIAL > GENERAL`。
 5. 优先级分配：`OPPORTUNITY` => `HIGH`，`ACADEMIC` => `MEDIUM`，其余 => `NORMAL`。
 
@@ -171,7 +237,7 @@ git add .
 3. 提交改动：
 
 ```bash
-git commit -m "Initial Campus Buzz mini-project implementation"
+git commit -m "Add React frontend with Material-UI for better visualization"
 ```
 
 4. 添加远程仓库（如果还未添加）：
@@ -194,18 +260,114 @@ git push -u origin master
 
 ## 其他建议
 
-- 如果你还希望让前端页面可直接访问，可考虑补充 `services/presentation` 的 `package.json`、`Dockerfile` 和静态内容。
-- 若要完整模拟 Serverless 函数，可继续补全 `functions/submission-event`、`functions/processor`、`functions/result-update` 的容器入口。
-- 当前项目不需要复杂验证，请保持重点在流程集成和服务编排。
+### 🔄 扩展开发
+
+- **添加 Processing Function**：实现 `functions/processor/logic.py` 的完整事件处理逻辑
+- **集成 Serverless Functions**：完善 `functions/` 目录下的云函数模拟
+- **添加用户认证**：集成简单的登录系统（可选）
+- **数据库升级**：从 SQLite 迁移到 PostgreSQL
+
+### 🐳 容器化部署
+
+当前项目支持 Docker 部署：
+
+```bash
+# 构建并启动容器
+docker-compose up --build
+
+# 或后台运行
+docker-compose up -d
+```
+
+注意：容器化版本需要调整服务间的网络配置。
+
+### 📈 性能优化
+
+- **数据库连接池**：在高并发场景下优化 SQLAlchemy 配置
+- **API 缓存**：添加 Redis 缓存层
+- **前端优化**：实现代码分割和懒加载
+
+### 🤝 贡献指南
+
+1. Fork 项目
+2. 创建特性分支：`git checkout -b feature/amazing-feature`
+3. 提交更改：`git commit -m 'Add amazing feature'`
+4. 推送分支：`git push origin feature/amazing-feature`
+5. 创建 Pull Request
+
+### 📄 许可证
+
+本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
 
 ## 常见问题
 
-- `Q: 为什么要先启动 Data Service？`
-  - 因为 Workflow Service 会向 Data Service 创建记录，若 Data Service 不在线，提交请求会失败。
+### 🚨 启动问题
 
-- `Q: 是否必须使用 Docker？`
-  - 不必须。README 中提供的本地 Python 运行方式是最快、最容易复现的。
+**Q: 运行 `./start-services.sh` 后报错 "command not found"**
+- A: 确保脚本有执行权限：`chmod +x start-services.sh`
 
-- `Q: 如何检查 Workflow 是否调用了数据服务？`
-  - 提交后调用 `GET /records/<id>`，如果能返回记录数据，则说明已成功创建。
+**Q: Python 版本问题或依赖安装失败**
+- A: 检查 Python 版本：`python3 --version`
+- 确保使用系统 Python 或正确配置环境
+
+**Q: Node.js 未找到或版本过低**
+- A: 检查 Node.js：`node --version`
+- 如果使用 nvm，启动脚本会自动加载
+
+**Q: 端口被占用**
+- A: 检查端口使用：`lsof -i :5001 -i :5002 -i :3000`
+- 停止占用进程或修改端口配置
+
+### 🔧 运行时问题
+
+**Q: 前端显示 504 Gateway Timeout**
+- A: 后端服务未正确启动或连接失败
+- 检查所有服务是否在运行：`ps aux | grep -E "(python|node)"`
+- 确保 Workflow Service 使用正确的 Data Service URL
+
+**Q: 提交事件后无响应或显示错误**
+- A: 检查所有必需字段是否填写完整
+- 验证后端服务状态：`curl http://localhost:5001/` 和 `curl http://localhost:5002/`
+
+**Q: 事件列表不显示**
+- A: 检查前端是否能访问 Data Service
+- 验证 CORS 设置和网络连接
+
+### 🐛 调试技巧
+
+**检查服务状态**：
+```bash
+# 查看运行进程
+ps aux | grep -E "(python|node)" | grep -v grep
+
+# 测试 API 连接
+curl http://localhost:5001/  # Workflow Service
+curl http://localhost:5002/  # Data Service
+curl http://localhost:3000   # Frontend
+```
+
+**查看服务日志**：
+- 前端：浏览器开发者工具 Console
+- 后端：终端窗口直接查看输出
+
+**重置数据**：
+```bash
+# 删除数据库文件重新开始
+rm services/data-service/events.db
+```
+
+### 📋 环境兼容性
+
+**macOS (已测试)**：
+- 使用 Homebrew 安装 Python 和 Node.js
+- 虚拟环境路径：`venv/bin/activate`
+
+**Linux**：
+- 确保 Python 3.11+ 和 pip 已安装
+- 可能需要：`sudo apt install python3-venv`
+
+**Windows**：
+- 使用 PowerShell 或 Git Bash
+- 虚拟环境路径：`venv\Scripts\activate`
+- 脚本可能需要调整为 `.bat` 或 `.ps1` 格式
 

@@ -4,8 +4,6 @@ services:
     build: ./services/presentation
     ports:
       - "3000:3000"
-    environment:
-      - WORKFLOW_URL=http://workflow-service:5001
     depends_on:
       - workflow-service
 

@@ -1,8 +1,25 @@
 # Presentation Service Dockerfile
-FROM node:20-slim
+FROM node:18-alpine
+
+# Install serve globally for production
+RUN npm install -g serve
+
 WORKDIR /app
+
+# Copy package files
 COPY package*.json ./
-RUN npm install --legacy-peer-deps
+
+# Install dependencies
+RUN npm ci --only=production
+
+# Copy source code
 COPY . /app
+
+# Build the application
+RUN npm run build
+
+# Expose port
 EXPOSE 3000
-CMD ["npm", "start"]
+
+# Serve the built application
+CMD ["serve", "-s", "build", "-l", "3000"]
