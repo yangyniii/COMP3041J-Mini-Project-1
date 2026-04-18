@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Campus Buzz</title>
+</head>
+<body>
+  <h1>Campus Buzz</h1>
+  <form id="event-form">
+    <label>Title: <input name="title" required /></label><br />
+    <label>Description: <textarea name="description" required></textarea></label><br />
+    <label>Location: <input name="location" required /></label><br />
+    <label>Date: <input type="date" name="date" required /></label><br />
+    <label>Organiser: <input name="organiser" required /></label><br />
+    <button type="submit">Submit</button>
+  </form>
+  <pre id="result"></pre>
+  <script src="src/app.js"></script>
+</body>
+</html>

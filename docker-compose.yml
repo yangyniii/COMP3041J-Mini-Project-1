@@ -1,0 +1,33 @@
+version: '3.9'
+services:
+  presentation:
+    build: ./services/presentation
+    ports:
+      - "3000:3000"
+    environment:
+      - WORKFLOW_URL=http://workflow-service:5001
+    depends_on:
+      - workflow-service
+
+  workflow-service:
+    build: ./services/workflow
+    ports:
+      - "5001:5001"
+    environment:
+      - DATA_SERVICE_URL=http://data-service:5002
+      - SUBMISSION_EVENT_URL=http://submission-event:8080/event
+      - RESULT_UPDATE_URL=http://data-service:5002/records
+    depends_on:
+      - data-service
+
+  data-service:
+    build: ./services/data-service
+    ports:
+      - "5002:5002"
+    environment:
+      - DATABASE_URL=sqlite:///events.db
+
+# 预留 Serverless 回调接口：
+# Submission Event Function -> SUBMISSION_EVENT_URL
+# Processing Function -> RESULT_UPDATE_URL
+# Result Update Function -> data-service /records/<id> PATCH or 自定义回调路由
