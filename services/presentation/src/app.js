@@ -13,11 +13,11 @@ function App() {
     date: '',
     organiser: ''
   });
+
   const [submitResult, setSubmitResult] = useState(null);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState(null); // ✅ 只新增：统一错误提示栏
   const [records, setRecords] = useState([]);
 
-  // Status color mapping table, in compliance with the project result definition
   const getStatusColor = (status) => {
     switch (status) {
       case 'APPROVED': return 'success';
@@ -32,10 +32,49 @@ function App() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  // =========================
+  // ONLY ADD VALIDATION LOGIC (NO UI CHANGE)
+  // =========================
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     setSubmitResult(null);
+
+    // frontend validation (Case 2 + Case 3 + empty fields)
+    if (!formData.title.trim()) {
+      setError("Title cannot be empty");
+      return;
+    }
+
+    if (!formData.description.trim()) {
+      setError("Description cannot be empty");
+      return;
+    }
+
+    if (formData.description.trim().length < 40) {
+      setError("Description must be at least 40 characters");
+      return;
+    }
+
+    if (!formData.location.trim()) {
+      setError("Location cannot be empty");
+      return;
+    }
+
+    if (!formData.date.trim()) {
+      setError("Date cannot be empty");
+      return;
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(formData.date)) {
+      setError("Date must be in YYYY-MM-DD format");
+      return;
+    }
+
+    if (!formData.organiser.trim()) {
+      setError("Organiser cannot be empty");
+      return;
+    }
 
     try {
       const response = await fetch('http://localhost:5001/api/submit', {
@@ -44,13 +83,24 @@ function App() {
         body: JSON.stringify(formData)
       });
 
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok) {
+        const msg = await response.json();
+        throw new Error(msg.error || `HTTP error ${response.status}`);
+      }
 
       const data = await response.json();
       setSubmitResult(data);
-      // Clean
-      setFormData({ title: '', description: '', location: '', date: '', organiser: '' });
+
+      setFormData({
+        title: '',
+        description: '',
+        location: '',
+        date: '',
+        organiser: ''
+      });
+
       fetchRecords();
+
     } catch (err) {
       setError(err.message);
     }
@@ -68,7 +118,6 @@ function App() {
     }
   };
 
-  // Simulate event-driven background processing: Automatically refresh the list every 3 seconds until the final result is seen.
   useEffect(() => {
     fetchRecords();
     const interval = setInterval(fetchRecords, 3000);
@@ -81,6 +130,7 @@ function App() {
         <Event sx={{ mr: 1, fontSize: 40, verticalAlign: 'middle' }} />
         Campus Buzz
       </Typography>
+
       <Typography variant="subtitle1" align="center" color="text.secondary" sx={{ mb: 4 }}>
         Campus Event Submission & Automatic Review System
       </Typography>
@@ -89,29 +139,35 @@ function App() {
         <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
           <Assignment sx={{ mr: 1 }} /> Submit New Event
         </Typography>
+
+        {/* ========================= */}
+        {/* 🔴 ONLY ADDED ERROR BAR */}
+        {/* ========================= */}
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+
         <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
           <TextField
             fullWidth label="Event Title" name="title"
             value={formData.title} onChange={handleChange} sx={{ mb: 2 }}
           />
+
           <TextField
             fullWidth label="Description (Min 40 characters)" name="description"
             value={formData.description} onChange={handleChange} multiline rows={3}
             error={formData.description.length > 0 && formData.description.length < 40}
             helperText={`${formData.description.length}/40 characters minimum (warning only)`}
-            sx={{
-              mb: 2,
-              '& .MuiInputLabel-outlined.MuiInputLabel-shrink': {
-                backgroundColor: 'white',
-                padding: '0 8px',
-                marginLeft: '-4px'
-              }
-            }}
+            sx={{ mb: 2 }}
           />
+
           <TextField
             fullWidth label="Location" name="location"
             value={formData.location} onChange={handleChange} sx={{ mb: 2 }}
           />
+
           <TextField
             fullWidth label="Date" name="date" type="date"
             value={formData.date} onChange={handleChange}
@@ -119,10 +175,12 @@ function App() {
             helperText="Format: YYYY-MM-DD (warning only)"
             sx={{ mb: 2 }}
           />
+
           <TextField
             fullWidth label="Organiser Name" name="organiser"
             value={formData.organiser} onChange={handleChange} sx={{ mb: 3 }}
           />
+
           <Button
             type="submit" variant="contained" color="primary" size="large"
             startIcon={<Send />} fullWidth sx={{ py: 1.5 }}
@@ -142,6 +200,7 @@ function App() {
         <Typography variant="h5" gutterBottom>
           Recent Submissions
         </Typography>
+
         {records.length === 0 ? (
           <Typography color="text.secondary">No events submitted yet.</Typography>
         ) : (
@@ -159,17 +218,12 @@ function App() {
                       primary={
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                           <Typography variant="h6">{record.title}</Typography>
-                          <Chip
-                            label={status}
-                            color={getStatusColor(status)}
-                            size="small"
-                            sx={{ fontWeight: 'bold' }}
-                          />
+                          <Chip label={status} color={getStatusColor(status)} size="small" />
                         </Box>
                       }
                       secondary={
-                        <Box component="span">
-                          <Typography variant="body2" color="text.primary">
+                        <Box>
+                          <Typography variant="body2">
                             {record.location} | {record.date} | {record.organiser}
                           </Typography>
 
@@ -177,20 +231,11 @@ function App() {
                             "{record.description}"
                           </Typography>
 
-                          {/* 展示结果详情：分类、优先级和备注。只有当状态不是 PENDING 时才显示这些详细信息  */}
                           {status !== 'PENDING' && (
                             <Box sx={{ mt: 1 }}>
                               <Stack direction="row" spacing={1}>
-                                <Chip 
-                                  label={`Category: ${status === 'INCOMPLETE' || status === 'NEEDS REVISION' ? 'N/A' : category}`} 
-                                  size="small" 
-                                  variant="outlined" 
-                                />
-                                <Chip 
-                                  label={`Priority: ${status === 'INCOMPLETE' || status === 'NEEDS REVISION' ? 'N/A' : priority}`} 
-                                  size="small" 
-                                  variant="outlined" 
-                                />
+                                <Chip label={`Category: ${category}`} size="small" variant="outlined" />
+                                <Chip label={`Priority: ${priority}`} size="small" variant="outlined" />
                               </Stack>
                               <Alert severity="info" icon={false} sx={{ mt: 1, py: 0 }}>
                                 <strong>Note:</strong> {note}

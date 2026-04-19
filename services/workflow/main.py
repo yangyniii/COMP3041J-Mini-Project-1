@@ -10,10 +10,10 @@ load_dotenv()
 # Initialize Flask application
 app = Flask(__name__)
 
-# Enable Cross-Origin Resource Sharing (CORS) for all routes
+# Enable Cross-Origin Resource Sharing (CORS)
 CORS(app)
 
-# External service endpoints (configurable via environment variables)
+# External service endpoints (container + serverless)
 DATA_SERVICE = os.getenv("DATA_SERVICE_URL", "http://localhost:5002")
 EVENT_FUNC = os.getenv("SUBMISSION_EVENT_URL", "http://localhost:8080/event")
 
@@ -21,7 +21,7 @@ EVENT_FUNC = os.getenv("SUBMISSION_EVENT_URL", "http://localhost:8080/event")
 @app.route("/", methods=["GET"])
 def home():
     """
-    Root endpoint providing API information and available routes.
+    API documentation endpoint
     """
     return jsonify({
         "message": "Campus Buzz Workflow Service API",
@@ -35,45 +35,74 @@ def home():
 @app.route('/api/submit', methods=['POST'])
 def handle_submission():
     """
-    Handle event submission requests.
+    Workflow Service (Orchestrator)
 
-    Workflow:
-    1. Accept incoming event data (no strict validation at this stage).
-    2. Create an initial record in the Data Service with status = PENDING.
-    3. Trigger an asynchronous event processing function.
-    4. Return a 202 Accepted response to indicate async processing.
+    Responsibilities:
+    1. Validate incoming request (pre-check)
+    2. Create record in Data Service
+    3. Trigger serverless event function (async processing)
+    4. Return immediate response (202 Accepted)
     """
+
     payload = request.get_json(force=True)
 
-    # Step 1: Create initial record with default status "PENDING"
+    # =====================================================
+    # 1. PRE-VALIDATION (IMPORTANT - prevents bad data entry)
+    # =====================================================
+    required_fields = ["title", "description", "location", "date", "organiser"]
+
+    missing_fields = [field for field in required_fields if not payload.get(field)]
+
+    if missing_fields:
+        return jsonify({
+            "error": "Invalid submission",
+            "message": "Missing required fields",
+            "missing_fields": missing_fields
+        }), 400  # ❗ Do NOT store invalid data
+
+    # =====================================================
+    # 2. CREATE RECORD IN DATA SERVICE (VALID DATA ONLY)
+    # =====================================================
     data_payload = {**payload, "status": "PENDING"}
 
-    data_response = requests.post(
-        f"{DATA_SERVICE}/records",
-        json=data_payload,
-        timeout=5
-    )
+    try:
+        data_response = requests.post(
+            f"{DATA_SERVICE}/records",
+            json=data_payload,
+            timeout=5
+        )
+    except requests.RequestException as e:
+        return jsonify({
+            "error": "Data Service unreachable",
+            "details": str(e)
+        }), 502
 
-    # Handle failure when calling Data Service
+    # Handle Data Service failure
     if data_response.status_code != 201:
         return jsonify({
             "error": "Failed to create record in Data Service",
-            "details": data_response.json()
+            "details": data_response.text
         }), 502
 
-    # Extract created record information
     record = data_response.json()
 
-    # Step 2: Trigger asynchronous event processing (fire-and-forget)
-    event_payload = {"id": record["id"], **payload}
+    # =====================================================
+    # 3. TRIGGER SERVERLESS EVENT FUNCTION (ASYNC)
+    # =====================================================
+    event_payload = {
+        "id": record["id"],
+        **payload
+    }
 
     try:
         requests.post(EVENT_FUNC, json=event_payload, timeout=5)
     except requests.RequestException:
-        # Ignore failures in async triggering to avoid blocking client response
+        # Fire-and-forget: do not block user response
         pass
 
-    # Step 3: Return acknowledgment (async processing)
+    # =====================================================
+    # 4. RETURN RESPONSE (NON-BLOCKING)
+    # =====================================================
     return jsonify({
         "message": "Submission received",
         "id": record["id"],
@@ -83,7 +112,6 @@ def handle_submission():
 
 if __name__ == "__main__":
     """
-    Entry point for running the Workflow Service.
-    Exposes the API on port 5001.
+    Entry point for Workflow Service
     """
     app.run(host="0.0.0.0", port=5001)
