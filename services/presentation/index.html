@@ -14,7 +14,15 @@
       <label>Event Title: <input name="title" required /></label><br />
       <label>Description (min 40 chars): <textarea name="description" required minlength="40"></textarea></label><br />
       <label>Location: <input name="location" required /></label><br />
-      <label>Date (YYYY-MM-DD): <input type="text" name="date" placeholder="2026-04-19" required /></label><br />
+      <label>Date (YYYY-MM-DD):<input
+    type="text"
+    name="date"
+    placeholder="2026-04-19"
+    pattern="\d{4}-\d{2}-\d{2}"
+    title="Format: YYYY-MM-DD (e.g. 2024-12-31)"
+    required
+  />
+</label><br />
       <label>Organiser: <input name="organiser" required /></label><br />
       <button type="submit" id="submit-btn">Submit Event</button>
     </form>
