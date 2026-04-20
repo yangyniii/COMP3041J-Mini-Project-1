@@ -398,6 +398,140 @@ docker-compose up -d
 - A: 检查前端是否能访问 Data Service
 - 验证 CORS 设置和网络连接
 
+### 🪟 Windows 特定问题
+
+#### Q: 标签总是显示 PENDING，不显示 APPROVED/INCOMPLETE/NEEDS REVISION
+
+**原因**：Processing Function / Result Update Function 未能启动或连接失败。
+
+**诊断步骤**：
+
+1. **检查是否所有 6 个服务都已启动**：
+   ```powershell
+   # 在 PowerShell 中查看运行进程
+   Get-Process python,node 2>$null | Format-Table Name, Id
+   ```
+   应该看到：
+   - `python.exe` × 4（Data Service, Workflow Service, Processor, Result Update）
+   - `node.exe` × 2（Submission Event Function, React Frontend）
+
+2. **验证所有端口是否监听**：
+   ```powershell
+   netstat -ano | findstr "5001\|5002\|8080\|8081\|8082\|3000"
+   ```
+   应该看到这些端口都有 `LISTENING` 状态：
+   - `5001` (Workflow Service)
+   - `5002` (Data Service)
+   - `8080` (Submission Event Function)
+   - `8081` (Processor Function)
+   - `8082` (Result Update Function)
+   - `3000` (React Frontend)
+
+3. **测试处理链路是否连通**：
+   ```powershell
+   # 测试 Submission Event Function
+   curl -X POST http://localhost:8080/event `
+     -H "Content-Type: application/json" `
+     -d '{\"id\":1,\"title\":\"Test\",\"description\":\"This is a test description with more than forty characters.\",\"location\":\"Test\",\"date\":\"2024-12-31\",\"organiser\":\"Test\"}'
+   ```
+   
+   **期望结果**：返回 200 状态码和处理结果，**不是** 错误信息。
+
+4. **查看后端服务日志**：
+   如果上面的请求失败，检查对应服务的终端输出中是否有错误信息。
+
+**解决方案**：
+
+- **如果某个服务未启动**：
+  - 确保 `start-services.sh` 在 Windows 上能正确执行
+  - 或者手动在独立的 PowerShell 窗口启动每个服务（见下面的手动启动指南）
+
+- **如果端口连接失败**：
+  - 检查防火墙设置是否允许本地连接到这些端口
+  - 或者修改 `.sh` 脚本中的端口号（例如改成 9001, 9002 等）
+
+- **如果环境变量未正确传递**：
+  - Windows 上的 bash 环境（Git Bash / WSL）可能不正确解析环境变量
+  - 手动在各个服务的 `python` 命令前加上环境变量
+
+#### Q: Windows 上 `./start-services.sh` 无法运行
+
+**解决方案**：使用 **PowerShell** 或 **Git Bash** 手动启动服务：
+
+**方法 1: PowerShell（推荐）**
+
+```powershell
+# 1. 创建并激活虚拟环境
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+
+# 2. 安装依赖
+pip install -r requirements.txt
+
+# 3. 在独立的 PowerShell 窗口启动每个服务
+# 窗口 1: Data Service
+cd services\data-service
+python api.py
+
+# 窗口 2: Workflow Service
+cd services\workflow
+$env:DATA_SERVICE_URL="http://localhost:5002"
+$env:SUBMISSION_EVENT_URL="http://localhost:8080/event"
+python main.py
+
+# 窗口 3: Submission Event Function
+cd functions\submission-event
+$env:PROCESSOR_URL="http://localhost:8081/process"
+node index.js
+
+# 窗口 4: Processor Function
+cd functions\processor
+$env:RESULT_UPDATE_URL="http://localhost:8082/update"
+python app.py
+
+# 窗口 5: Result Update Function
+cd functions\result-update
+$env:DATA_SERVICE_URL="http://localhost:5002"
+python app.py
+
+# 窗口 6: Frontend
+cd services\presentation
+npm install
+npm start
+```
+
+**方法 2: Git Bash**
+
+```bash
+# 1. 激活虚拟环境
+source venv/Scripts/activate
+
+# 2. 手动启动服务（同 macOS/Linux）
+DATA_SERVICE_URL=http://localhost:5002 SUBMISSION_EVENT_URL=http://localhost:8080/event python services/workflow/main.py &
+```
+
+#### Q: 虚拟环境激活失败或环境变量未生效
+
+**Windows 虚拟环境激活**：
+```powershell
+# PowerShell
+.\venv\Scripts\Activate.ps1
+
+# CMD
+venv\Scripts\activate.bat
+
+# Git Bash
+source venv/Scripts/activate
+```
+
+**Windows 环境变量设置**（永久生效）：
+```powershell
+# 在 PowerShell 中永久设置
+[Environment]::SetEnvironmentVariable("DATA_SERVICE_URL", "http://localhost:5002", "User")
+[Environment]::SetEnvironmentVariable("SUBMISSION_EVENT_URL", "http://localhost:8080/event", "User")
+# 然后重启 PowerShell 窗口
+```
+
 ### 🐛 调试技巧
 
 **检查服务状态**：
@@ -418,7 +552,7 @@ curl http://localhost:3000   # Frontend
 **重置数据**：
 ```bash
 # 删除数据库文件重新开始
-rm services/data-service/events.db
+rm -rf ./instance/events.db ./services/data-service/instance/events.db
 ```
 
 ### 📋 环境兼容性
@@ -433,6 +567,7 @@ rm services/data-service/events.db
 
 **Windows**：
 - 使用 PowerShell 或 Git Bash
-- 虚拟环境路径：`venv\Scripts\activate`
+- 虚拟环境路径：`venv\Scripts\activate.ps1`（PowerShell）或 `venv\Scripts\activate.bat`（CMD）
 - 脚本可能需要调整为 `.bat` 或 `.ps1` 格式
+- **关键**：确保所有 6 个服务都在独立的 PowerShell/CMD 窗口中启动，且环境变量正确传递
 
