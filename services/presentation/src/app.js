@@ -17,7 +17,7 @@ function App() {
   const [error, setError] = useState(null);
   const [records, setRecords] = useState([]);
 
-  // 状态颜色映射表，符合项目结果定义
+  // Status color mapping table, in compliance with the project result definition
   const getStatusColor = (status) => {
     switch (status) {
       case 'APPROVED': return 'success';
@@ -48,7 +48,7 @@ function App() {
 
       const data = await response.json();
       setSubmitResult(data);
-      // 清空表单
+      // Clean
       setFormData({ title: '', description: '', location: '', date: '', organiser: '' });
       fetchRecords();
     } catch (err) {
@@ -68,7 +68,7 @@ function App() {
     }
   };
 
-  // 模拟事件驱动的后台处理：每 3 秒自动刷新列表，直到看到最终结果
+  // Simulate event-driven background processing: Automatically refresh the list every 3 seconds until the final result is seen.
   useEffect(() => {
     fetchRecords();
     const interval = setInterval(fetchRecords, 3000);
@@ -181,15 +181,15 @@ function App() {
                           {status !== 'PENDING' && (
                             <Box sx={{ mt: 1 }}>
                               <Stack direction="row" spacing={1}>
-                                <Chip 
-                                  label={`Category: ${status === 'INCOMPLETE' || status === 'NEEDS REVISION' ? 'N/A' : category}`} 
-                                  size="small" 
-                                  variant="outlined" 
+                                <Chip
+                                  label={`Category: ${status === 'INCOMPLETE' || status === 'NEEDS REVISION' ? 'N/A' : category}`}
+                                  size="small"
+                                  variant="outlined"
                                 />
-                                <Chip 
-                                  label={`Priority: ${status === 'INCOMPLETE' || status === 'NEEDS REVISION' ? 'N/A' : priority}`} 
-                                  size="small" 
-                                  variant="outlined" 
+                                <Chip
+                                  label={`Priority: ${status === 'INCOMPLETE' || status === 'NEEDS REVISION' ? 'N/A' : priority}`}
+                                  size="small"
+                                  variant="outlined"
                                 />
                               </Stack>
                               <Alert severity="info" icon={false} sx={{ mt: 1, py: 0 }}>

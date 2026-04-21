@@ -45,7 +45,7 @@ def process_event(data):
     elif any(keyword in content for keyword in ["club", "society", "social"]):
         category = "SOCIAL"
     else:
-        # 兜底判定：当标题和描述中没有任何分类关键词时，统一设为 GENERAL
+        # Backup Judgment: If there are no category keywords in the title and description, it will be uniformly set as "GENERAL"
         category = "GENERAL"
 
     priority_map = {

@@ -51,7 +51,7 @@ def home():
 @app.route("/records", methods=["POST"])
 def create_record():
     payload = request.get_json(force=True)
-    
+
     # 允许任何形式的提交，Processing Function 将判定完整性
     record = EventRecord(
         title=payload.get("title"),
@@ -75,6 +75,15 @@ def create_record():
 def list_records():
     records = EventRecord.query.all()
     return jsonify([record_to_dict(record) for record in records])
+
+
+@app.route("/records", methods=["DELETE"])
+def delete_all_records():
+    records = EventRecord.query.all()
+    for record in records:
+        db.session.delete(record)
+    db.session.commit()
+    return jsonify({"deleted": len(records)})
 
 
 @app.route("/records/<int:record_id>", methods=["GET"])
